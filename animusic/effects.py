@@ -1,42 +1,79 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from PIL import Image, ImageChops
+from moviepy.Effect import Effect
 
 
-def sin_wave_distortion(img, signal, mag=10, freq=20):
-    """Return an image with rows shifted according to a sine curve.
+class SineWaveDistortion(Effect):
+    def __init__(self, signal, mag=10, freq=20):
+        self.signal = signal
+        self.mag = mag
+        self.freq = freq
 
-    im: Pillow Image
-    mag: The magnitude of the sine wave
-    freq: The frequency of the sine wave
-    phase: The degree by which the cycle is offset (rads)
-    """
-    img = img.copy()
-    phase = -2 * np.pi * signal
-    mag = mag * signal
-    height = img.shape[0]
-    offsets = (mag * np.sin(2 * np.pi * freq * (np.arange(height) / height) + phase)).astype(int)
-    for offset in np.unique(offsets):
-        idx = (offsets==offset)
-        img[idx] = np.roll(img[idx], offset, axis=1)
-    return img
+    def apply(self, clip):
+        def sin_wave_distortion(get_frame, t):
+            """Return an image with rows shifted according to a sine curve.
+
+            im: Pillow Image
+            mag: The magnitude of the sine wave
+            freq: The frequency of the sine wave
+            phase: The degree by which the cycle is offset (rads)
+            """
+            img = get_frame(t)
+            img = img.copy()
+            signal = self.signal.iloc[self.signal.index.get_loc(t)]
+            phase = -2 * np.pi * signal
+            mag = self.mag * signal
+            height = img.shape[0]
+            offsets = (mag * np.sin(2 * np.pi * self.freq * (np.arange(height) / height) + phase)).astype(int)
+            for offset in np.unique(offsets):
+                idx = (offsets==offset)
+                img[idx] = np.roll(img[idx], offset, axis=1)
+            return img
+
+        return clip.transform(sin_wave_distortion)
 
 
-def chromatic_aberration(img, signal, mag=10):
-    """
-    Return an image where the color channels are horizontally offset.
+class ChromaticAberration(Effect):
+    def __init__(self, signal, mag=10):
+        self.signal = signal
+        self.mag = mag
 
-    The Red and Blue color channels are horizontally offset from the Green
-    channel left and right respectively.
+    def apply(self, clip):
+        def fix_mask(get_frame, t):
+            """
+            Return an image where the color channels are horizontally offset.
 
-    im: RGB array
-    offset: distance in pixels the color channels should be offset by
-    """
-    img = img.copy()
-    offset = int(mag * signal)
-    img[:,:,0] = np.roll(img[:,:,0], -offset)
-    img[:,:,2] = np.roll(img[:,:,2], offset)
-    return img
+            The Red and Blue color channels are horizontally offset from the Green
+            channel left and right respectively.
+            """
+            img = get_frame(t)
+            img = img.copy()
+            signal = self.signal.iloc[self.signal.index.get_loc(t)]
+            offset = int(self.mag * signal)
+            img1 = np.roll(img[:,:], -offset)
+            img2 = np.roll(img[:,:], offset)
+            return np.maximum(img, np.maximum(img1, img2))
+
+        def chromatic_aberration(get_frame, t):
+            """
+            Return an image where the color channels are horizontally offset.
+
+            The Red and Blue color channels are horizontally offset from the Green
+            channel left and right respectively.
+            """
+            img = get_frame(t)
+            img = img.copy()
+            signal = self.signal.iloc[self.signal.index.get_loc(t)]
+            offset = int(self.mag * signal)
+            img[:,:,0] = np.roll(img[:,:,0], -offset)
+            img[:,:,2] = np.roll(img[:,:,2], offset)
+            return img
+
+        if clip.mask is not None:
+            clip.mask = clip.mask.transform(fix_mask)
+
+        return clip.transform(chromatic_aberration)
 
 
 def hsv_to_rgb(h, s, v):
@@ -121,7 +158,7 @@ def pixel_sort(im, signal, multiplier=2, reverse=True):
     lum_limit = abs(lum_limit) if lum_limit <= 255 else 255
     mask_function = (lambda val, factor=signal, limit=lum_limit:
                     255 if val < limit * factor else 0)
-    
+
     # Create a black-and-white mask to determine which pixels will be sorted
     interval_mask = im.convert('L').point(mask_function)
     interval_mask_data = list(interval_mask.getdata())
@@ -170,7 +207,7 @@ def pixel_sort(im, signal, multiplier=2, reverse=True):
 
 # def zoom(img, signal, max_zoom=0.1):
 #     zoom_factor = 1 + max_zoom * signal
-    
+
 #     h, w = img.shape[:2]
 
 #     # For multichannel images we don't want to apply the zoom factor to the RGB
@@ -189,7 +226,7 @@ def pixel_sort(im, signal, multiplier=2, reverse=True):
 #         # Zero-padding
 #         out = np.zeros_like(img)
 #         out[top:top+zh, left:left+zw] = zoom_image(img, zoom_tuple, order=0)
-    
+
 #     # Zooming in
 #     elif zoom_factor > 1:
 #         # Bounding box of the zoomed-in region within the input array
@@ -211,45 +248,59 @@ def pixel_sort(im, signal, multiplier=2, reverse=True):
 #         out = img
 #     return out
 
-def zoom(img, signal, max_zoom=0.10):
-    """
-    Center zoom in/out of the given image and returning an enlarged/shrinked view of 
-    the image without changing dimensions
-    Args:
-        img : Image array
-        zoom_factor : amount of zoom as a ratio (0 to Inf)
-    """
-    zoom_factor = 1 + max_zoom * signal
-    
-    height, width = img.shape[:2] # It's also the final desired shape
-    new_height, new_width = int(height * zoom_factor), int(width * zoom_factor)
 
-    ### Crop only the part that will remain in the result (more efficient)
-    # Centered bbox of the final desired size in resized (larger/smaller) image coordinates
-    y1, x1 = max(0, new_height - height) // 2, max(0, new_width - width) // 2
-    y2, x2 = y1 + height, x1 + width
-    bbox = np.array([y1,x1,y2,x2])
-    # Map back to original image coordinates
-    bbox = (bbox / zoom_factor).astype(np.int)
-    y1, x1, y2, x2 = bbox
-    cropped_img = img[y1:y2, x1:x2]
+class Zoom(Effect):
+    def __init__(self, signal, max_zoom=0.10):
+        self.signal = signal
+        self.max_zoom = max_zoom
 
-    # Handle padding when downscaling
-    resize_height, resize_width = min(new_height, height), min(new_width, width)
-    pad_height1, pad_width1 = (height - resize_height) // 2, (width - resize_width) //2
-    pad_height2, pad_width2 = (height - resize_height) - pad_height1, (width - resize_width) - pad_width1
-    pad_spec = [(pad_height1, pad_height2), (pad_width1, pad_width2)] + [(0,0)] * (img.ndim - 2)
+    def apply(self, clip):
+        def zoom(get_frame, t):
+            """
+            Center zoom in/out of the given image and returning an enlarged/shrinked view of
+            the image without changing dimensions
+            Args:
+                img : Image array
+                zoom_factor : amount of zoom as a ratio (0 to Inf)
+            """
+            img = get_frame(t)
+            signal = self.signal.iloc[self.signal.index.get_loc(t)]
+            zoom_factor = 1 + self.max_zoom * signal
 
-    # result = cv2.resize(cropped_img, (resize_width, resize_height))
-    result = np.array(Image.fromarray(cropped_img).resize((resize_width, resize_height), Image.NEAREST))
-    result = np.pad(result, pad_spec, mode='constant')
-    assert result.shape[0] == height and result.shape[1] == width
-    return result
+            height, width = img.shape[:2] # It's also the final desired shape
+            new_height, new_width = int(height * zoom_factor), int(width * zoom_factor)
+
+            ### Crop only the part that will remain in the result (more efficient)
+            # Centered bbox of the final desired size in resized (larger/smaller) image coordinates
+            y1, x1 = max(0, new_height - height) // 2, max(0, new_width - width) // 2
+            y2, x2 = y1 + height, x1 + width
+            bbox = np.array([y1,x1,y2,x2])
+            # Map back to original image coordinates
+            bbox = (bbox / zoom_factor).astype(int)
+            y1, x1, y2, x2 = bbox
+            cropped_img = img[y1:y2, x1:x2]
+
+            # Handle padding when downscaling
+            resize_height, resize_width = min(new_height, height), min(new_width, width)
+            pad_height1, pad_width1 = (height - resize_height) // 2, (width - resize_width) //2
+            pad_height2, pad_width2 = (height - resize_height) - pad_height1, (width - resize_width) - pad_width1
+            pad_spec = [(pad_height1, pad_height2), (pad_width1, pad_width2)] + [(0,0)] * (img.ndim - 2)
+
+            # result = cv2.resize(cropped_img, (resize_width, resize_height))
+            result = np.array(Image.fromarray(cropped_img).resize((resize_width, resize_height), Image.NEAREST))
+            result = np.pad(result, pad_spec, mode='constant')
+            assert result.shape[0] == height and result.shape[1] == width
+            return result
+
+        if clip.mask is not None:
+            clip.mask = clip.mask.transform(zoom)
+
+        return clip.transform(zoom)
 
 # def barrel_distortion(im, signal):
 #     im_bytes = BytesIO()
 #     im.save(im_bytes, format='png')
-    
+
 #     with WandImage(blob=im_bytes.getvalue()) as img:
 #         img.virtual_pixel = 'white'
 #         img.distort('barrel', (0.2, 0.0, 0.0, 0.8))
