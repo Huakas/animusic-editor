@@ -3,7 +3,7 @@ import platform
 import PySimpleGUI as sg
 import json
 from concurrent.futures import ThreadPoolExecutor
-from . import anim
+import anim
 
 
 def main():
@@ -28,7 +28,7 @@ def main():
 
     window = sg.Window('Animusic', layout, size=(win_width, win_height))
     window.finalize()
-    
+
     with ThreadPoolExecutor(1) as executor:
         animation_thread = None
 
@@ -83,7 +83,7 @@ def main():
                     os.system('xdg-open ' + values['output'])
 
             last_values = values.copy()
-                
+
     window.close()
 
 
