@@ -14,7 +14,7 @@ class EditorWindow(QMainWindow):
         # Create a 1920x1080 black canvas
         self.canvas = QGraphicsRectItem(0, 0, 1920, 1080)
         self.canvas.setBrush(QColor(Qt.black))  # Fill with black
-        self.canvas.setPen(Qt.NoPen)  # No border
+        # self.canvas.setPen(Qt.NoPen)  # No border
         self.scene.addItem(self.canvas)
 
         # Center the canvas in the scene
@@ -89,8 +89,8 @@ class DraggableItem(QGraphicsItemGroup):
 
         # Create Outline (Always Visible)
         self.outline = QGraphicsRectItem(self.pixmap_item.boundingRect())
-        self.outline.setPen(QPen(QColor(Qt.red), 2, Qt.DashLine))
         self.outline.setBrush(Qt.NoBrush)
+        self.outline_pen_disabled = self.outline.pen()
         self.addToGroup(self.outline)
         self.outline.setZValue(2)  # Always above the pixmap
 
@@ -99,6 +99,7 @@ class DraggableItem(QGraphicsItemGroup):
         self.click_offset = event.pos()
         self.setZValue(3)  # Bring to front while dragging
         super().mousePressEvent(event)
+        self.outline.setPen(QPen(QColor(Qt.red), 2, Qt.DashLine))
 
     def mouseMoveEvent(self, event):
         """ Move item and reapply clipping. """
@@ -112,6 +113,7 @@ class DraggableItem(QGraphicsItemGroup):
         self.setZValue(0)
         self.pixmap_item.update()  # Ensure clipping updates
         super().mouseReleaseEvent(event)
+        self.outline.setPen(self.outline_pen_disabled)
 
 class ClippedPixmapItem(QGraphicsPixmapItem):
     def __init__(self, pixmap, canvas_rect, canvas_item):
@@ -123,17 +125,10 @@ class ClippedPixmapItem(QGraphicsPixmapItem):
         """ Clip the item to the canvas bounds while keeping the offset correct. """
         painter.save()
 
-        # Get the canvas's position in the scene
         canvas_scene_pos = self.canvas_item.scenePos()  # Use the parent (canvas) as reference
         adjusted_canvas_rect = self.canvas_rect.translated(canvas_scene_pos)
-
-        # Convert adjusted canvas bounds to local item coordinates
         canvas_bounds = self.mapFromScene(adjusted_canvas_rect).boundingRect()
-
-        # Clip painting to the canvas region
         painter.setClipRect(canvas_bounds)
-
-        # Draw the pixmap (inside the clipping bounds)
         super().paint(painter, option, widget)
 
         painter.restore()
