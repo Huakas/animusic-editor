@@ -1,13 +1,12 @@
-# Animusic
-Animusic is a Python package that allows you to easily create animated music videos with beautiful audio-reactive visual effects. All you need to do is provide an image or a video that you'd like to animate, as well as an audio file, and the rest is done for you!
+# Animusic-Editor
+Animusic-Editor is planned to be a graphical user interface that allows you to easily create animated music videos with beautiful audio-reactive visual effects. In it's final form it is supposed to be an editor for Animusic where you can easily create your own music videos with applying different effects to different videos or images that can be imported, moved on the canvas and configured to suit your needs.
 
 ## Features
 * Uses [**librosa**](https://librosa.org/) to filter and process the audio in order to translate the beats and sounds into visual effect intensity.
 * Uses different effects for different frequencies to create more dynamic and responsive animations.
 * Can animate both images and videos.
 * Supports all major image, video, and audio formats.
-* Includes a user-friendly GUI made with [**PySimpleGUI**](https://github.com/PySimpleGUI/PySimpleGUI).
-* No tweaking necessary - the animation algorithm was specifically designed to work well out-of-the-box for most types of music.
+* Easy tweaking possible - create your own custom animated music video with custom effects to make the video yours.
 
 ## Showcase
 **Note:** You may need to unmute the videos in order to hear the audio.
@@ -31,7 +30,17 @@ This package requires [**ffmpeg**](https://www.ffmpeg.org/) to be installed in o
 A Windows binary of **ffmpeg** is already included with this package for convenience, so there is no need for you to install it.
 
 ## Installation
-```pip install git+https://github.com/wardzin/animusic.git```
+Clone the repository onto your local machine:
+```git clone https://github.com/Huakas/animusic-editor.git```
+Create a Python virtual environment:
+```cd animusic-editor```
+```python -m venv venv```
+Activate Python virtual environment:
+```source venv/bin/activate``` (Linux)
+```venv\Scripts\activate.bat``` (Windows)
+Install required Python packages:
+```pip install -r requirements.txt```
 
 ## Usage
-To open the GUI, just run `animusic` from the command line.
+With activated Python virtual environment, run:
+```python start.py```
