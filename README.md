@@ -30,17 +30,20 @@ This package requires [**ffmpeg**](https://www.ffmpeg.org/) to be installed in o
 A Windows binary of **ffmpeg** is already included with this package for convenience, so there is no need for you to install it.
 
 ## Installation
-Clone the repository onto your local machine:
+Clone the repository onto your local machine:\
 `git clone https://github.com/Huakas/animusic-editor.git`
-Create a Python virtual environment:
-`cd animusic-editor`
+
+Create a Python virtual environment:\
+`cd animusic-editor`\
 `python -m venv venv`
-Activate Python virtual environment:
-`source venv/bin/activate` (Linux)
+
+Activate Python virtual environment:\
+`source venv/bin/activate` (Linux)\
 `venv\Scripts\activate.bat` (Windows)
-Install required Python packages:
+
+Install required Python packages:\
 `pip install -r requirements.txt`
 
 ## Usage
-With activated Python virtual environment, run:
+With activated Python virtual environment, run:\
 `python start.py`
